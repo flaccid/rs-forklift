@@ -1,41 +1,163 @@
 #!/usr/bin/env ruby
 
+# Author:: Chris Fordham (<chris.fordham@rightcale.com>)
+# Copyright:: Copyright (c) 2013 RightScale, Inc.
+# License:: Apache License, Version 2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Usage examples:
+#      rs-forklift http://downloads.sourceforge.net/thoughtpolicevm/debian-7.0.0-amd64-minimal.zip --md5sum 084da8918219a0475adda00331dfb9d5
+
 require 'optparse'
 require 'methadone'
-require 'rs/forklift.rb'
+
+$:.unshift(File.join(File.dirname(__FILE__), "..", "lib"))
+
+require 'forklift'
+require 'forklift/config'
+require 'forklift/workers'
+require 'forklift/images'
+require 'forklift/ssh'
 
 class App
   include Methadone::Main
   include Methadone::CLILogging
 
-  main do # Add args you want: |like,so|
-    # your program code here
-    # You can access CLI options via
-    # the options Hash
+  change_logger(Logger.new(STDOUT))
+
+  main do |image_url|
+    debug "arguments: image_url=>#{image_url}"
+    debug "cli options: #{options}"
+    
+    # first, prepare the image cache
+    Forklift::Ssh.run_command(Forklift::Config.settings['workers']['ec2']['public_ip'], "sudo mkdir -p /var/cache/forklift/images /var/cache/forklift/extracted")
+    Forklift::Ssh.run_command(Forklift::Config.settings['workers']['ec2']['public_ip'], "sudo chown -R rightscale:rightscale /var/cache/forklift")
+    Forklift::Ssh.run_command(Forklift::Config.settings['workers']['ec2']['public_ip'], "sudo chmod -R 775 /var/cache/forklift")
+
+    # second, download the image if needed
+    Forklift::Images.download_image(image_url) unless Forklift::Images.check_image(image_url, options['md5sum'])
+
+    # extra the image when required
+    case File.extname(File.basename(image_url))
+    when ".zip"
+      require 'forklift/extract'
+      debug "File #{File.basename(image_url)} is a ZIP archive."
+      Forklift::Extract.zip("/var/cache/forklift/images/#{File.basename(image_url)}")
+    end
+    
+    # find what images are in the extracted files
+    images = Forklift::Ssh.return_command(Forklift::Config.settings['workers']['ec2']['public_ip'], "find /var/cache/forklift/extracted/#{File.basename(image_url)} -name '*-s0*.vmdk' -prune -o -name '*.vmdk' -print")
+    debug "Images found: #{images}"
+    
+    # convert
+    require 'forklift/images'
+    converted_image = Forklift::Images.convert(images, 'raw')
+    debug "Successfully converted, new image: #{converted_image}."
+
+    Forklift::Images.remove_loop_mapper_symlinks()
+
+    Forklift::Images.mount(converted_image)
   end
 
   # supplemental methods here
 
   # Declare command-line interface here
 
-  # description "one line description of your app"
-  #
-  # Accept flags via:
-  # on("--flag VAL","Some flag")
-  # options[flag] will contain VAL
-  #
-  # Specify switches via:
-  # on("--[no-]switch","Some switch")
-  #
-  # Or, just call OptionParser methods on opts
-  #
-  # Require an argument
-  # arg :some_arg 
-  #
-  # # Make an argument optional
-  # arg :optional_arg, :optional
+  description "Forklift virtual machine and hard disk images to the cloud"
 
-  version Rs::Forklift::VERSION
+
+  on("--vm", "Indicates to rs-forklift that the image is a VM")
+  on("--vhdd", "Indicates to rs-forklift that the image is a virtual hard disk drive")
+  on("--mci", "Create an MCI for the image")
+  on("--server-template", "Create a ServerTemplate")
+  on("-s", "--server", "Create a server from the ServerTemplate")
+  on("-l", "--launch", "Launch the server after creation.")
+
+  on("-d", "--deployment", "Set the deployment to add the server to when using --server", "(default: Default)") do |deployment|
+      options['deployment'] = deployment
+  end
+
+  on("-c CLOUD", "--cloud", "Set the destination cloud for the VM image or disk", "(default: ec2)") do |cloud|
+      options['cloud'] = cloud
+      debug "Forklifting to cloud: #{options['cloud']}."
+  end
+  
+  on("--region REGION", "Set the destination region of the cloud for the VM image or disk", "(default: us-east-1)") do |region|
+    options['region'] = region
+  end
+  
+  on("-m MD5SUM", "--md5sum", "The (known) md5sum of the virtual machine image") do |md5sum|
+    options['md5sum'] = md5sum
+  end
+
+  on("-p PARTITION", "--partition", "Indicate the partition (number) of the virtual machine image to forklift", "(default: 1)") do |partition|
+    options['partition'] = partition
+  end
+
+  on("-r", "--refresh-config", "Refresh the configuration by looking up the current IPs for the cloud workers") do
+    Forklift::Config.refresh
+    exit
+  end
+
+  on("--ssh-worker", "SSH interactively into a forklift worker") do
+    info "Initiating SSH session with #{Forklift::Config.settings['workers']['ec2']['public_ip']}..."
+    Forklift::Ssh.login(Forklift::Config.settings['workers']['ec2']['public_ip'])
+    exit
+  end
+  
+  on("--reboot-workers", "Reboot all worker instances") do
+    Forklift::Ssh.run_command(Forklift::Config.settings['workers']['ec2']['public_ip'], "rs_shutdown --reboot")
+    exit
+  end
+
+  on("--list-workers", "List the servers tagged as forklift workers in the RightScale account.") do
+    require "forklift/workers"
+    Forklift::Workers.list
+    exit
+  end
+
+  on("--list-loops", "Lists the used loopback devices on the worker") do
+    require "forklift/ssh"
+    Forklift::Ssh.run_command(Forklift::Config.settings['workers']['ec2']['public_ip'], "losetup -a")
+    exit
+  end
+
+  on("--create-tunnel", "Creates SSH tunnel to worker") do
+    require "forklift/workers"
+    Forklift::Ssh.create_tunnel(Forklift::Config.settings['workers']['ec2']['public_ip'])
+    exit
+  end
+
+  on("-t", "--test-workers", "Test the forklift worker instances") do
+    require "forklift/workers"
+    Forklift::Workers.test
+    exit
+  end
+
+  on("--list-images", "List the images cached on the forklift workers") do
+    require 'forklift/images'
+    options['list_images'] = true
+    Forklift::Images.list_images
+    exit
+  end
+
+  arg :image_url
+
+  #defaults_from_env_var FORKLIFT_CONFIG
+  defaults_from_config_file 'rightscale/.forklift.yaml'
+  
+  version Forklift::VERSION
 
   use_log_level_option
 

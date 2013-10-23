@@ -1,0 +1,4 @@
+---
+workers:
+  ec2:
+    server_id: 1234

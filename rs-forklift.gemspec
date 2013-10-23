@@ -1,13 +1,13 @@
 # coding: utf-8
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'rs/forklift/version'
+require 'forklift/version'
 
 Gem::Specification.new do |spec|
   spec.name          = "rs-forklift"
-  spec.version       = Rs::Forklift::VERSION
+  spec.version       = Forklift::VERSION
   spec.authors       = ["Chris Fordham"]
-  spec.email         = ["chris@xhost.com.au"]
+  spec.email         = ["chris.fordham@rightscale.com"]
   spec.description   = %q{TODO: Write a gem description}
   spec.summary       = %q{TODO: Write a gem summary}
   spec.homepage      = ""
@@ -24,4 +24,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency('aruba')
   spec.add_development_dependency('rake', '~> 0.9.2')
   spec.add_dependency('methadone', '~> 1.3.0')
+  spec.add_dependency('rest_connection')
 end

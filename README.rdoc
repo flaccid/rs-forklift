@@ -1,10 +1,14 @@
 = rs-forklift - DESCRIBE YOUR GEM
 
-Author::  YOUR NAME (YOUR EMAIL)
-Copyright:: Copyright (c) 2013 YOUR NAME
+Author::  Chris Fordham (chris.fordham@rightscale.com)
+Copyright:: Copyright (c) 2013 RightScale Inc.
 
 
 DESCRIBE YOUR GEM HERE
+
+== Forklift Worker dependencies
+
+* qemu-utils
 
 == Links
 
