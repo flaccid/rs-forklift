@@ -42,7 +42,7 @@ module Forklift
       end
       settings['workers']['ec2']['public_ip'] = Server.find(settings['workers']['ec2']['server_id']).settings['ip-address']
       require 'json'
-      IO.write(File.join(File.expand_path("~"), ".rightscale", "forklift.json"), JSON.pretty_generate(settings))
+      File.open(File.join(File.expand_path("~"), ".rightscale", "forklift.json"), 'w') {|f| f.write(JSON.pretty_generate(settings)) }
     end
   end
 end
