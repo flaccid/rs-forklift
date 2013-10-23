@@ -19,6 +19,7 @@
 # Usage examples:
 #      rs-forklift http://downloads.sourceforge.net/thoughtpolicevm/debian-7.0.0-amd64-minimal.zip --md5sum 084da8918219a0475adda00331dfb9d5
 
+require 'rubygems'
 require 'optparse'
 require 'methadone'
 
