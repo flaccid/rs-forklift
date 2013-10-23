@@ -156,7 +156,7 @@ class App
   arg :image_url
 
   #defaults_from_env_var FORKLIFT_CONFIG
-  defaults_from_config_file 'rightscale/.forklift.yaml'
+  defaults_from_config_file '.rightscale/forklift.yaml'
   
   version Forklift::VERSION
 
