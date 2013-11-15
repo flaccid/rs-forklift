@@ -24,5 +24,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency('aruba')
   spec.add_development_dependency('rake', '~> 0.9.2')
   spec.add_dependency('methadone', '~> 1.3.0')
+  spec.add_dependency "bundler", "~> 1.3"
   spec.add_dependency('rest_connection')
 end
