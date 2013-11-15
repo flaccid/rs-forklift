@@ -10,6 +10,10 @@ DESCRIBE YOUR GEM HERE
 
 * qemu-utils
 
+=== Dependent RubyGems ==
+
+See `rs-forklift.gemspec`.
+
 == Links
 
 * {Source on Github}[LINK TO GITHUB]
