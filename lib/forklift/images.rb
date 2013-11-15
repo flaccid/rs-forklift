@@ -44,7 +44,7 @@ module Forklift
     end
 
     def self.remove_loop_mapper_symlinks
-      Forklift::Ssh.run_command(Forklift::Config.settings['workers']['ec2']['public_ip'], "rm /dev/mapper/loop* || true")
+      Forklift::Ssh.run_command(Forklift::Config.settings['workers']['ec2']['public_ip'], "rm /dev/mapper/loop* || true /dev/null 2>&1")
     end
     
     def self.list_images
@@ -92,11 +92,10 @@ module Forklift
       if part
         puts 'i should just mount the part it wants'
       else
-        # mount all
-        loop_parts.each { |part|
-          debug "mounting #{part}"
-          Forklift::Ssh.run_command(Forklift::Config.settings['workers']['ec2']['public_ip'], "sudo mkdir -p /mnt/#{part} && sudo mount /dev/mapper/#{part} /mnt/#{part}")
-        }
+        # mount first only (multiple support is TODO)
+        part = loop_parts[0]
+        debug "mounting #{part}"
+        Forklift::Ssh.run_command(Forklift::Config.settings['workers']['ec2']['public_ip'], "sudo mkdir -p /mnt/#{part} && sudo mount /dev/mapper/#{part} /mnt/#{part}")
       end
     end
   end
